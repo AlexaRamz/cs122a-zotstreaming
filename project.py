@@ -36,12 +36,27 @@ def delete_viewer(uid: int) -> bool:
 	pass
 
 def insert_movie(rid: int, website_url: str) -> bool:
-	"""Insert a new movie in the appropriate table(s). Assume that the corresponding Release record already exists.
+  try:
+    with open("releases.csv", "r") as file:
+      file.seek(0)
+      """read all the lines in the file except the first as it contains attribute names"""
+      content = file.readlines()[1:]
+      """read file contents to make sure no movie or show has the same rid"""
+      for i in content:
+          args = i.split(",")
 
-	Returns:
-    bool: Whether the action was successful
-  """
-	pass
+          if(int(args[0]) == rid):
+            return False
+    
+      """write new movie to release file"""
+      with open("movies.csv", "a+") as movie_file:
+        movie_file.write(f"\n{rid}, {website_url}")
+        file.close()
+        movie_file.close()
+    return True
+  
+  except:
+    return False
 
 def insert_session(sid: int, uid: int, rid: int, ep_num: int, initiate_at: str, leave_at: str, quality:str, device:str) -> bool:
 	"""Insert a new session that was played by a specific viewer which streamed a specific video.
@@ -119,6 +134,7 @@ if __name__ == "__main__":
       elif cmd == "deleteViewer":
         args[0] = int(args[0])
         print(delete_viewer(*args))
+      
       elif cmd == "insertMovie":
         args[0] = int(args[0])
         print(insert_movie(*args))
