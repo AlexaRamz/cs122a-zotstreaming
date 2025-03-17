@@ -1,171 +1,327 @@
 import sys
+import os
+import csv
 
-def import_data(folderName: str) -> bool:
-	"""Delete existing tables, and create new tables. Then read the csv files in the given folder and import data into the database. You can assume that the folder always contains all the necessary CSV files and the files are correct. 
-	
-	Args:
-    folderName (str): Folder containing csv files to read
-	
-	Returns:
-    bool: Whether the action was successful
-  """
-	pass
+# Using MySQL with Python: https://www.w3schools.com/python/python_mysql_getstarted.asp
+import mysql.connector
 
-def insert_viewer(uid: int, email: str, nickname: str, street: str, city: str, state: str, zip:str, genres:str, joined_date: str, first:str, last:str, subscription:str) -> bool:
-	"""Insert a new viewer into the related tables.
+db = mysql.connector.connect(
+    user="test",
+    password="password",
+    database="cs122a"
+)
 
-	Returns:
-    bool: Whether the action was successful
-  """
-	pass
+# Executing SQL queries in Python: https://www.w3schools.com/python/python_mysql_select.asp
+cursor = db.cursor()
+
+
+def import_data(folder_name: str) -> bool:
+    """Delete existing tables, and create new tables. Then read the csv files in the given folder and import data into the database. You can assume that the folder always contains all the necessary CSV files and the files are correct.
+
+        Args:
+                        folderName (str): Folder containing csv files to read
+
+        Returns:
+                        bool: Whether the action was successful
+    """
+    # Delete existing database and create new tables by running DDL statements
+    instructions_file_path = "create_tables_instructions.txt"
+    try:
+        with open(instructions_file_path, "r") as file:
+            sql_script = file.read()
+            sql_statements = [s.strip() for s in sql_script.split(";")]
+            for statement in sql_statements:
+                cursor.execute(statement)
+            db.commit()
+    except FileNotFoundError:
+        print(f"Error: The file {instructions_file_path} was not found.")
+        return False
+
+    # Read the csv files and import data
+    # https://www.geeksforgeeks.org/reading-csv-files-in-python/
+    for table_name in ("users", "producers", "viewers", "releases", "movies", "series", "videos", "sessions", "reviews"):
+        file_name = table_name + ".csv"
+        file_path = os.path.join(folder_name, file_name)
+        table_name = table_name.capitalize()
+
+        try:
+            with open(file_path, "r") as file:
+                csv_file = csv.reader(file)
+                column_names = next(csv_file)
+                for row in csv_file:
+                    placeholders = ", ".join(["%s"] * len(row))
+                    sql_command = f"""
+                    INSERT INTO {table_name} ({", ".join(column_names)})
+                    VALUES ({placeholders});
+                    """
+                    try:
+                        cursor.execute(sql_command, row)
+                    except mysql.connector.Error as e:
+                        # print(f"Error inserting record {row} into table {table_name}: {e}")
+                        return False
+                db.commit()
+        except FileNotFoundError:
+            # print(f"Error: The file {file_path} was not found.")
+            return False
+
+    return True
+
+
+def insert_viewer(uid: int, email: str, nickname: str, street: str, city: str, state: str, zip: str, genres: str, joined_date: str, first_name: str, last_name: str, subscription: str) -> bool:
+    """Insert a new viewer into the related tables.
+
+    Returns:
+        bool: Whether the action was successful
+    """
+    street = street.strip("\"")
+    genres = genres.strip("\"")
+
+    # Insert into: https://www.w3schools.com/python/python_mysql_insert.asp
+    # Insert record into Users table
+    user_statement = """
+    INSERT INTO Users (uid, email, joined_date, nickname, street, city, state, zip, genres)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    user_values = (uid, email, joined_date, nickname,
+                   street, city, state, zip, genres)
+    try:
+        cursor.execute(user_statement, user_values)
+    except mysql.connector.Error as e:
+        # print(f"Error inserting record into Users: {e}")
+        return False
+
+    # Inser record into Viewers table
+    viewer_statement = """
+    INSERT INTO Viewers (uid, subscription, first_name, last_name)
+    VALUES (%s, %s, %s, %s)
+    """
+    viewer_values = (uid, subscription, first_name, last_name)
+    try:
+        cursor.execute(viewer_statement, viewer_values)
+    except mysql.connector.Error as e:
+        # print(f"Error inserting record into Viewers: {e}")
+        return False
+
+    db.commit()
+    return True
+
 
 def add_genre(uid: int, genre: str) -> bool:
-	"""Add a new genre to a user. For purposes of this homework, the genres attribute is a list of semicolon separated words. If the user already has existing genres (e.g. "comedy;romance"), the new genre should be added to the semicolon-separated list (e.g. for a new genre "horror", the genre column will be updated to "comedy;romance;horror".
+    """Add a new genre to a user. For purposes of this homework, the genres attribute is a list of semicolon separated words. If the user already has existing genres (e.g. "comedy;romance"), the new genre should be added to the semicolon-separated list (e.g. for a new genre "horror", the genre column will be updated to "comedy;romance;horror".
 
-	Returns:
+    Returns:
     bool: Whether the action was successful
-  """
-	pass
+    """
+    # Get existing genre list for the user, if any
+    # Select from: https://www.w3schools.com/python/python_mysql_select.asp
+    get_genres_statement = f"""
+    SELECT genres
+    FROM Users
+    WHERE uid = {uid};
+    """
+    try:
+        cursor.execute(get_genres_statement)
+        result = cursor.fetchone()
+    except mysql.connector.Error as e:
+        # print(f"Error retrieving genres for record with uid {uid}: {e}")
+        return False
+
+    genre_list = []
+    if result is not None:
+        genre_list = result[0].split(";")
+    genre_list.append(genre)  # Add the specified genre
+
+    # Update genre list for the user
+    update_genres_statement = f"""
+    UPDATE Users
+    SET genres = "{";".join(genre_list)}"
+    WHERE uid = {uid};
+    """
+    try:
+        cursor.execute(update_genres_statement)
+        db.commit()
+    except mysql.connector.Error as e:
+        # print(f"Error updating genres for record with uid {uid}: {e}")
+        return False
+
+    return True
+
 
 def delete_viewer(uid: int) -> bool:
-	"""Given a Viewer uid, delete the Viewer from the appropriate table(s).
+    """Given a Viewer uid, delete the Viewer from the appropriate table(s).
 
-	Returns:
+    Returns:
     bool: Whether the action was successful
-  """
-	pass
+    """
+    sql_statement = f"""
+    DELETE FROM Viewers
+    WHERE uid = {uid};
+    """
+    try:
+        cursor.execute(sql_statement)
+        db.commit()
+    except mysql.connector.Error as e:
+        # print(f"Error removing record with uid {uid} from Viewers: {e}")
+        return False
+
+    return True
+
 
 def insert_movie(rid: int, website_url: str) -> bool:
-  try:
-    with open("releases.csv", "r") as file:
-      file.seek(0)
-      """read all the lines in the file except the first as it contains attribute names"""
-      content = file.readlines()[1:]
-      """read file contents to make sure no movie or show has the same rid"""
-      for i in content:
-          args = i.split(",")
+    """Insert a new movie in the appropriate table(s). Assume that the corresponding Release record already exists.
 
-          if(int(args[0]) == rid):
-            return False
-    
-      """write new movie to release file"""
-      with open("movies.csv", "a+") as movie_file:
-        movie_file.write(f"\n{rid}, {website_url}")
-        file.close()
-        movie_file.close()
-    return True
-  
-  except:
-    return False
-
-def insert_session(sid: int, uid: int, rid: int, ep_num: int, initiate_at: str, leave_at: str, quality:str, device:str) -> bool:
-	"""Insert a new session that was played by a specific viewer which streamed a specific video.
-
-	Returns:
+    Returns:
     bool: Whether the action was successful
-  """
-	pass
+    """
+    try:
+        with open("releases.csv", "r") as file:
+            file.seek(0)
+            # read all the lines in the file except the first as it contains attribute names
+            content = file.readlines()[1:]
+            # read file contents to make sure no movie or show has the same rid
+            for i in content:
+                args = i.split(",")
+
+                if (int(args[0]) == rid):
+                    return False
+
+            # write new movie to release file
+            with open("movies.csv", "a+") as movie_file:
+                movie_file.write(f"\n{rid}, {website_url}")
+                file.close()
+                movie_file.close()
+            return True
+
+    except:
+        return False
+
+
+def insert_session(sid: int, uid: int, rid: int, ep_num: int, initiate_at: str, leave_at: str, quality: str, device: str) -> bool:
+    """Insert a new session that was played by a specific viewer which streamed a specific video.
+
+    Returns:
+    bool: Whether the action was successful
+    """
+    pass
+
 
 def update_release(rid: int, title: str) -> bool:
-	"""Update the title of a release
+    """Update the title of a release
 
-	Returns:
+    Returns:
     bool: Whether the action was successful
-  """
-	pass
+    """
+    pass
+
 
 def list_releases(uid: int) -> bool:
-	"""Given a viewer ID, list all the unique releases the viewer has reviewed in ASCENDING order on the release title
+    """Given a viewer ID, list all the unique releases the viewer has reviewed in ASCENDING order on the release title
 
-	Returns:
+    Returns:
     Table - rid, genre, title
-  """
-	pass
+    """
+    pass
+
 
 def list_popular_releases(N: int):
-	"""List the top N releases that have the most reviews, in DESCENDING order on reviewCount, rid.
+    """List the top N releases that have the most reviews, in DESCENDING order on reviewCount, rid.
 
-	Returns:
+    Returns:
     Table - rid, title, reviewCount
-  """
-	pass
+    """
+    pass
+
 
 def get_release_title(sid: int):
-	"""Given a session ID, find the release associated with the video streamed in the session. List information on both the release and video, in ASCENDING order on release title. 
+    """Given a session ID, find the release associated with the video streamed in the session. List information on both the release and video, in ASCENDING order on release title. 
 
-	Returns:
+    Returns:
     Table - rid, release_title, genre, video_title, ep_num, length
-  """
-	pass
-	
-def list_active_viewers(N: int, start: str, end: str):
-	"""Find all active viewers that have started a session more than N times (including N) in a specific time range (including start and end date), in ASCENDING order by uid. N will be at least 1.
+    """
+    pass
 
-	Returns:
+
+def list_active_viewers(N: int, start: str, end: str):
+    """Find all active viewers that have started a session more than N times (including N) in a specific time range (including start and end date), in ASCENDING order by uid. N will be at least 1.
+
+    Returns:
     Table - UID, first name, last name
-  """
-	pass
+    """
+    pass
+
 
 def get_videos_viewed(rid: int):
-	"""Given a Video rid, count the number of unique viewers that have started a session on it. Videos that are not streamed by any viewer should have a count of 0 instead of NULL. Return video information along with the count in DESCENDING order by rid.
+    """Given a Video rid, count the number of unique viewers that have started a session on it. Videos that are not streamed by any viewer should have a count of 0 instead of NULL. Return video information along with the count in DESCENDING order by rid.
 
-	Returns:
+    Returns:
     Table - RID, ep_num, title, length,COUNT
-  """
-	pass
+    """
+    pass
+
 
 if __name__ == "__main__":
-  if len(sys.argv) > 1:
-    cmd = sys.argv[1]
-    args = []
-    
-    if len(sys.argv) > 2:
-      args = sys.argv[2:]
-		
-    try: 
-      if cmd == "import":
-        print(import_data(*args))
-      elif cmd == "insertViewer":
-        args[0] = int(args[0])
-        print(insert_viewer(*args))
-      elif cmd == "addGenre":
-        args[0] = int(args[0])
-        print(add_genre(*args))
-      elif cmd == "deleteViewer":
-        args[0] = int(args[0])
-        print(delete_viewer(*args))
-      
-      elif cmd == "insertMovie":
-        args[0] = int(args[0])
-        print(insert_movie(*args))
-      elif cmd == "insertSession":
-        args[0] = int(args[0])
-        args[1] = int(args[1])
-        args[2] = int(args[2])
-        args[3] = int(args[3])
-        print(insert_session(*args))
-      elif cmd == "updateRelease":
-        args[0] = int(args[0])
-        print(update_release(*args))
-      elif cmd == "listReleases":
-        args[0] = int(args[0])
-        print(list_releases(*args))
-      elif cmd == "popularRelease":
-        args[0] = int(args[0])
-        print(list_popular_releases(*args))
-      elif cmd == "releaseTitle":
-        args[0] = int(args[0])
-        print(get_release_title(*args))
-      elif cmd == "activeViewer":
-        args[0] = int(args[0])
-        print(list_active_viewers(*args))
-      elif cmd == "videosViewed":
-        args[0] = int(args[0])
-        print(get_videos_viewed(*args))
-      
-    except ValueError as e:
-      print(f"Wrong type for one or more arguments: ", {e})
-    except TypeError as e:
-      print(f"Invalid number of arguments, or wrong type for one or more arguments: ", {e})
-    except IndexError as e:
-      print(f"Invalid number of arguments: ", {e})
+    if len(sys.argv) > 1:
+        cmd = sys.argv[1]
+        args = []
+
+        if len(sys.argv) > 2:
+            args = sys.argv[2:]
+
+        result = None
+        try:
+            if cmd == "import":
+                result = import_data(*args)
+            elif cmd == "insertViewer":
+                args[0] = int(args[0])
+                result = insert_viewer(*args)
+            elif cmd == "addGenre":
+                args[0] = int(args[0])
+                result = add_genre(*args)
+            elif cmd == "deleteViewer":
+                args[0] = int(args[0])
+                result = delete_viewer(*args)
+            elif cmd == "insertMovie":
+                args[0] = int(args[0])
+                result = insert_movie(*args)
+            elif cmd == "insertSession":
+                args[0] = int(args[0])
+                args[1] = int(args[1])
+                args[2] = int(args[2])
+                args[3] = int(args[3])
+                result = insert_session(*args)
+            elif cmd == "updateRelease":
+                args[0] = int(args[0])
+                result = update_release(*args)
+            elif cmd == "listReleases":
+                args[0] = int(args[0])
+                result = list_releases(*args)
+            elif cmd == "popularRelease":
+                args[0] = int(args[0])
+                result = list_popular_releases(*args)
+            elif cmd == "releaseTitle":
+                args[0] = int(args[0])
+                result = get_release_title(*args)
+            elif cmd == "activeViewer":
+                args[0] = int(args[0])
+                result = list_active_viewers(*args)
+            elif cmd == "videosViewed":
+                args[0] = int(args[0])
+                result = get_videos_viewed(*args)
+            else:
+                print("Command not found")
+
+            if type(result) is bool:
+                if result:
+                    print("Success")
+                else:
+                    print("Fail")
+            else:
+                print(result)
+
+        except ValueError as e:
+            print(f"Wrong type for one or more arguments: ", {e})
+        except TypeError as e:
+            print(
+                f"Invalid number of arguments, or wrong type for one or more arguments: ", {e})
+        except IndexError as e:
+            print(f"Invalid number of arguments: ", {e})
