@@ -73,8 +73,6 @@ def insert_viewer(uid: int, email: str, nickname: str, street: str, city: str, s
     Returns:
         bool: Whether the action was successful
     """
-    street = street.strip("\"")
-    genres = genres.strip("\"")
 
     # Insert into: https://www.w3schools.com/python/python_mysql_insert.asp
     # Insert record into Users table
@@ -259,7 +257,6 @@ def list_releases(uid: int) -> None:
         print(f"Error: {e}")
 
 
-
 def list_popular_releases(N: int):
     """List the top N releases that have the most reviews, in DESCENDING order on reviewCount, rid.
 
@@ -301,9 +298,16 @@ if __name__ == "__main__":
         cmd = sys.argv[1]
         args = []
 
+        # Get only the arguments for the function (exclude script name and function name)
         if len(sys.argv) > 2:
-            args = sys.argv[2:]
-
+            args = sys.argv[2:] 
+        
+        # Process arguments
+        for i in range(len(args)):
+            args[i] = args[i].strip("\"") # Remove quotations for strings that may have spaces
+            if args[i] == "NULL":
+                args[i] = None # Replace "NULL" with None
+            
         result = None
         try:
             if cmd == "import":
@@ -357,8 +361,6 @@ if __name__ == "__main__":
                     print("Success")
                 else:
                     print("Fail")
-            else:
-                print(result)
 
         except ValueError as e:
             print(f"Wrong type for one or more arguments: ", {e})
