@@ -123,16 +123,21 @@ def add_genre(uid: int, genre: str) -> bool:
     except mysql.connector.Error as e:
         # print(f"Error retrieving genres for record with uid {uid}: {e}")
         return False
-
-    genre_list = []
+    
+    genres = genre
     if result is not None:
         genre_list = result[0].split(";")
-    genre_list.append(genre)  # Add the specified genre
+        if genre not in genre_list:
+            genre_list.append(genre)  # Add the specified genre
+            genres = ";".join(genre_list)
+        else:
+            # print(f"User with uid {uid} already has genre {genre}")
+            return False
 
     # Update genre list for the user
     update_genres_statement = f"""
     UPDATE Users
-    SET genres = "{";".join(genre_list)}"
+    SET genres = "{genres}"
     WHERE uid = {uid};
     """
     try:
