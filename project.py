@@ -6,8 +6,9 @@ import csv
 import mysql.connector
 
 db = mysql.connector.connect(
-    user="test",
-    password="password",
+    host="localhost",
+    user="root",        # your MySQL username
+    password="Gambit_1006",  # your MySQL password
     database="cs122a"
 )
 
@@ -168,32 +169,30 @@ def delete_viewer(uid: int) -> bool:
 
 
 def insert_movie(rid: int, website_url: str) -> bool:
-    """Insert a new movie in the appropriate table(s). Assume that the corresponding Release record already exists.
+    """Insert a new movie in the appropriate table(s). Assume that the corresponding Release record already exists."""
+    
 
-    Returns:
-    bool: Whether the action was successful
-    """
+    """Checks if the movie rid is already in the Releases table"""
+    releases_statement = f"""SELECT rid FROM Releases WHERE rid = {rid};"""
+
     try:
-        with open("releases.csv", "r") as file:
-            file.seek(0)
-            # read all the lines in the file except the first as it contains attribute names
-            content = file.readlines()[1:]
-            # read file contents to make sure no movie or show has the same rid
-            for i in content:
-                args = i.split(",")
-
-                if (int(args[0]) == rid):
-                    return False
-
-            # write new movie to release file
-            with open("movies.csv", "a+") as movie_file:
-                movie_file.write(f"\n{rid}, {website_url}")
-                file.close()
-                movie_file.close()
-            return True
-
-    except:
+        cursor.execute(releases_statement)
+        result = cursor.fetchone()
+    except mysql.connector.Error as e:
         return False
+    
+    """If no movie is found with the same rid, add it to the table"""
+    if result is None:
+        movie_sql_statement = f"""INSERT INTO Movies(rid, website_url) VALUES (%s, %s);"""
+        movie_val = (rid, website_url)
+
+        try: 
+            cursor.execute(movie_sql_statement, movie_val)
+        
+        except mysql.connector.Error as e:
+            return False
+    db.commit()
+    return True
 
 
 def insert_session(sid: int, uid: int, rid: int, ep_num: int, initiate_at: str, leave_at: str, quality: str, device: str) -> bool:
@@ -202,7 +201,20 @@ def insert_session(sid: int, uid: int, rid: int, ep_num: int, initiate_at: str, 
     Returns:
     bool: Whether the action was successful
     """
-    pass
+
+    """Insert new session into the Sessions Table"""
+    session_statement = f"""INSERT INTO Sessions (sid, uid, rid, ep_num, initiate_at, leave_at, quality, device) VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"""
+    session_values = (sid, uid, rid, ep_num, initiate_at, leave_at, quality, device)
+
+    try:
+        cursor.execute(session_statement, session_values)
+
+    except mysql.connector.Error as e:
+        #print(f"Error inserting record into Viewers: {e}")
+        return False
+    db.commit()
+    return True
+
 
 
 def update_release(rid: int, title: str) -> bool:
@@ -211,16 +223,42 @@ def update_release(rid: int, title: str) -> bool:
     Returns:
     bool: Whether the action was successful
     """
-    pass
+    """Updates the title on the Release Table"""
+    print(rid)
+    print(title)
+    update_release = f"""UPDATE Releases SET title = {title} WHERE rid = {rid};"""
+    try:
+        cursor.execute(update_release)
+        db.commit()
+    except mysql.connector.Error as e:
+        return False
+    
+    """Updates the title in the Videos table??? Not sure if the title is different to the one in Releases"""
+    return True
 
 
-def list_releases(uid: int) -> bool:
+def list_releases(uid: int) -> None:
     """Given a viewer ID, list all the unique releases the viewer has reviewed in ASCENDING order on the release title
 
     Returns:
     Table - rid, genre, title
     """
-    pass
+    """Might have to change sql statement below"""
+    get_release_statement = f"""SELECT DISTINCT r.rid, r.genre, r.title FROM Releases as r JOIN Reviews as review ON review.rid = r.rid WHERE review.uid = {uid} ORDER BY title;"""
+    
+    try:
+        cursor.execute(get_release_statement)
+        result = cursor.fetchall()
+       
+        """If the output is a result table, print each record in one line and separate columns with ‘,’ - just like the format of the dataset file. """
+        for i in result:
+            print(f"{i[0]}, {i[1]}, {i[2]}")
+        #return True
+    
+    except mysql.connector.Error as e:
+        #return False
+        print(f"Error: {e}")
+
 
 
 def list_popular_releases(N: int):
@@ -288,7 +326,12 @@ if __name__ == "__main__":
                 args[1] = int(args[1])
                 args[2] = int(args[2])
                 args[3] = int(args[3])
-                result = insert_session(*args)
+                args[4] = str(args[4] + " " + args[5])
+                args[5] = str(args[6] + " " + args[7]) 
+                args[6] = str(args[8])
+                args[7] = str(args[9])
+
+                result = insert_session(*args[:8])
             elif cmd == "updateRelease":
                 args[0] = int(args[0])
                 result = update_release(*args)
