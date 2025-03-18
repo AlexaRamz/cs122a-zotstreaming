@@ -6,9 +6,8 @@ import csv
 import mysql.connector
 
 db = mysql.connector.connect(
-    host="localhost",
-    user="root",        # your MySQL username
-    password="Gambit_1006",  # your MySQL password
+    user="test",
+    password="password",
     database="cs122a"
 )
 
