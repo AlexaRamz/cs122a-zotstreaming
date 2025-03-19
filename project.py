@@ -252,7 +252,7 @@ def list_releases(uid: int) -> None:
         #print("here")
         """If the output is a result table, print each record in one line and separate columns with ‘,’ - just like the format of the dataset file. """
         for i in result:
-            print(f"{i[0]}, {i[1]}, {i[2]}")
+            print(f"{i[0]},{i[1]},{i[2]}")
     
     except mysql.connector.Error as e:
         pass
