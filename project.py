@@ -353,7 +353,27 @@ def get_videos_viewed(rid: int):
     Returns:
     Table - RID, ep_num, title, length,COUNT
     """
-    pass
+    get_video_views = f"""
+        WITH UniqueUserCount AS (
+              SELECT rid, COUNT(DISTINCT uid) as user_count
+              FROM Sessions
+              GROUP BY rid)
+        SELECT rid, ep_num, title, length, COALESCE(user_count, 0)
+        FROM Videos
+        LEFT JOIN UniqueUserCount USING (rid)
+        WHERE rid = {rid}
+        ORDER BY rid DESC
+        """
+        
+    try:
+        cursor.execute(get_video_views)
+        result = cursor.fetchall()
+        
+        for i in result:
+            print(f"{i[0]},{i[1]},{i[2]},{i[3]},{i[4]}")
+    
+    except mysql.connector.Error as e:
+        print(f"Error: {e}")
 
 
 if __name__ == "__main__":
