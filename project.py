@@ -324,7 +324,27 @@ def list_active_viewers(N: int, start: str, end: str):
     Returns:
     Table - UID, first name, last name
     """
-    pass
+    get_active_viewers = f"""
+        WITH AppSessions AS (
+              SELECT uid, COUNT(*) as userCount
+              FROM Sessions
+              WHERE initiate_at >= '{start}' AND leave_at <= '{end}'
+              GROUP BY uid)
+        SELECT uid, first_name, last_name
+        FROM Viewers NATURAL JOIN AppSessions
+        WHERE userCount >= {N}
+        ORDER BY uid ASC
+        """
+        
+    try:
+        cursor.execute(get_active_viewers)
+        result = cursor.fetchall()
+        
+        for i in result:
+            print(f"{i[0]},{i[1]},{i[2]}")
+    
+    except mysql.connector.Error as e:
+        print(f"Error: {e}")
 
 
 def get_videos_viewed(rid: int):
