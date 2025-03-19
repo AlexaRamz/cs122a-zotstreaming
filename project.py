@@ -264,7 +264,26 @@ def list_popular_releases(N: int):
     Returns:
     Table - rid, title, reviewCount
     """
-    pass
+    get_popular_releases = f"""
+        WITH RevCounts AS (
+            SELECT rid, COUNT(*) as reviewCount
+            FROM Reviews
+            GROUP BY rid)
+        SELECT r.rid, r.title, COALESCE(rc.reviewCount, 0) as reviewCount
+        FROM Releases r LEFT JOIN RevCounts rc ON r.rid = rc.rid
+        ORDER BY reviewCount DESC, rid DESC
+        LIMIT {N}
+        """
+    
+    try:
+        cursor.execute(get_popular_releases)
+        result = cursor.fetchall()
+        
+        for i in result:
+            print(f"{i[0]},{i[1]},{i[2]}")
+    
+    except mysql.connector.Error as e:
+        print(f"Error: {e}")
 
 
 def get_release_title(sid: int):
@@ -273,7 +292,30 @@ def get_release_title(sid: int):
     Returns:
     Table - rid, release_title, genre, video_title, ep_num, length
     """
-    pass
+    get_release_info = f"""
+        WITH RelVids AS (SELECT r.rid,
+                                r.title AS release_title,
+                                r.genre,
+                                v.ep_num,
+                                v.title AS video_title,
+                                v.length
+              FROM Releases r
+              JOIN Videos v ON r.rid = v.rid)
+        SELECT rid, release_title, genre, video_title, ep_num, length
+        FROM Sessions NATURAL JOIN RelVids
+        WHERE sid = {sid}
+        ORDER BY release_title ASC
+        """
+        
+    try:
+        cursor.execute(get_release_info)
+        result = cursor.fetchall()
+        
+        for i in result:
+            print(f"{i[0]},{i[1]},{i[2]},{i[3]},{i[4]},{i[5]}")
+    
+    except mysql.connector.Error as e:
+        print(f"Error: {e}")
 
 
 def list_active_viewers(N: int, start: str, end: str):
