@@ -210,13 +210,11 @@ def insert_session(sid: int, uid: int, rid: int, ep_num: int, initiate_at: str, 
 
     try:
         cursor.execute(session_statement, session_values)
+        db.commit()
+        return True
 
     except mysql.connector.Error as e:
-        #print(f"Error inserting record into Viewers: {e}")
         return False
-    db.commit()
-    return True
-
 
 
 def update_release(rid: int, title: str) -> bool:
@@ -226,17 +224,16 @@ def update_release(rid: int, title: str) -> bool:
     bool: Whether the action was successful
     """
     """Updates the title on the Release Table"""
-    print(rid)
-    print(title)
     update_release = f"""UPDATE Releases SET title = {title} WHERE rid = {rid};"""
     try:
         cursor.execute(update_release)
         db.commit()
+        return True
+    
     except mysql.connector.Error as e:
         return False
     
     """Updates the title in the Videos table??? Not sure if the title is different to the one in Releases"""
-    return True
 
 
 def list_releases(uid: int) -> None:
@@ -255,11 +252,9 @@ def list_releases(uid: int) -> None:
         """If the output is a result table, print each record in one line and separate columns with ‘,’ - just like the format of the dataset file. """
         for i in result:
             print(f"{i[0]}, {i[1]}, {i[2]}")
-        #return True
     
     except mysql.connector.Error as e:
-        #return False
-        print(f"Error: {e}")
+        pass
 
 
 def list_popular_releases(N: int):
@@ -334,12 +329,8 @@ if __name__ == "__main__":
                 args[1] = int(args[1])
                 args[2] = int(args[2])
                 args[3] = int(args[3])
-                args[4] = str(args[4] + " " + args[5])
-                args[5] = str(args[6] + " " + args[7]) 
-                args[6] = str(args[8])
-                args[7] = str(args[9])
 
-                result = insert_session(*args[:8])
+                result = insert_session(*args)
             elif cmd == "updateRelease":
                 args[0] = int(args[0])
                 result = update_release(*args)
