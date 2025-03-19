@@ -224,9 +224,10 @@ def update_release(rid: int, title: str) -> bool:
     bool: Whether the action was successful
     """
     """Updates the title on the Release Table"""
-    update_release = f"""UPDATE Releases SET title = {title} WHERE rid = {rid};"""
+    update_release = f"""UPDATE Releases SET title = %s WHERE rid = %s;"""
+
     try:
-        cursor.execute(update_release)
+        cursor.execute(update_release, (title, rid))
         db.commit()
         return True
     
