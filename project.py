@@ -244,12 +244,12 @@ def list_releases(uid: int) -> None:
     Table - rid, genre, title
     """
     """Might have to change sql statement below"""
-    get_release_statement = f"""SELECT DISTINCT r.rid, r.genre, r.title FROM Releases as r JOIN Reviews as review ON review.rid = r.rid WHERE review.uid = {uid} ORDER BY title;"""
+    get_release_statement = f"""SELECT DISTINCT r.rid, r.genre, r.title FROM Releases as r JOIN Reviews as review ON review.rid = r.rid WHERE review.uid = %s ORDER BY title ASC;"""
     
     try:
-        cursor.execute(get_release_statement)
+        cursor.execute(get_release_statement, (uid, ))
         result = cursor.fetchall()
-       
+        #print("here")
         """If the output is a result table, print each record in one line and separate columns with ‘,’ - just like the format of the dataset file. """
         for i in result:
             print(f"{i[0]}, {i[1]}, {i[2]}")
